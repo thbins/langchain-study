@@ -4,8 +4,8 @@ from langchain_core.messages import ChatMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_teddynote.prompts import load_prompt
-from langchain import hub
 from langchain_openai import ChatOpenAI
+import glob
 
 # API KEY 정보로드
 load_dotenv()
@@ -22,10 +22,12 @@ with st.sidebar:
     # 초기화 버튼 생성
     clear_btn = st.button("대화 초기화")
 
+    prompt_files = glob.glob("prompts/*.yaml")
     selected_prompt = st.selectbox(
-        "프롬프트를 선택해 주세요.", ("기본모드", "SNS 게시글", "요약"), 
+        "프롬프트를 선택해 주세요.", prompt_files, 
         index=0
     )
+    task_input = st.text_input("TASK 입력", "")
 
 # 이전 대화를 출력
 
@@ -39,25 +41,29 @@ def print_messages():
         st.chat_message(chat_message.role).write(chat_message.content)
 
 # 체인 생성
-def create_chain(prompt_type):
+def create_chain(prompt_filepath, task=""):
     # prompt | llm | output_parser
 
-    # 프롬프트
-    prompt = ChatPromptTemplate(
-        [
-            (
-                "system", 
-                "당신은 친절한 AI 어시스턴트입니다. 다음의 질문에 간결하게 답변해 주세요."
-            ),
-            ("user", "Question:\n{question}"),
-        ]
-    )
-        
-    if prompt_type == "SNS 게시글":
-        prompt = load_prompt("prompts/sns.yaml", encoding="utf-8")
+    prompt = load_prompt(prompt_filepath, encoding="utf-8")
+    if task:
+        prompt = prompt.partial(task=task)
 
-    elif prompt_type == "요약":
-        prompt = hub.pull("teddynote/chain-of-density-korean:946ed62d")
+    # # 프롬프트
+    # prompt = ChatPromptTemplate(
+    #     [
+    #         (
+    #             "system", 
+    #             "당신은 친절한 AI 어시스턴트입니다. 다음의 질문에 간결하게 답변해 주세요."
+    #         ),
+    #         ("user", "Question:\n{question}"),
+    #     ]
+    # )
+        
+    # if prompt_type == "SNS 게시글":
+    # prompt = load_prompt(prompt_filepath, encoding="utf-8")
+
+    # elif prompt_type == "요약":
+    #     prompt = hub.pull("teddynote/chain-of-density-korean:946ed62d")
     
     # LLM(GPT)
     llm = ChatOpenAI(model_name="gpt-4o", temperature=0)
@@ -93,7 +99,7 @@ if user_input:
     st.chat_message("user").write(user_input)
     
     # chain을 생성
-    chain = create_chain(selected_prompt)
+    chain = create_chain(selected_prompt, task=task_input)
     
     # ai_answer = chain.invoke({"question" : user_input})
     # AI의 답변
